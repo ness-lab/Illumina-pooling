@@ -8,7 +8,7 @@ library(tidyverse)
 
 # Load test data
 # allData <- read_csv("test-data/tesPrep_postPCR_cleaned_qubit.csv")
-allData <- read_csv("reference_excel_sheets/allPlants_toPrep_randomized.csv")
+allData <- read_csv("data/reference//allPlants_toPrep_randomized.csv")
 
 #### VARIABLE PARAMETERS ####
 
@@ -59,6 +59,7 @@ sample_final_volume <- 2 * sample_pooling_vol
 calculate_molarity <- function(ng_uL_concentration, mean_fragment_size){
   
   nM_concentration <- (ng_uL_concentration / (660 * mean_fragment_size)) * 10 ^ 6
+  nM_concentration <- round(nM_concentration, 2)
   
   return(nM_concentration)
   
@@ -144,3 +145,6 @@ sequencing_lanes <- split(data_out, rep(1:num_lanes))
 names(sequencing_lanes) <- paste0("Lane_", seq_along(sequencing_lanes))
 list2env(sequencing_lanes, envir = .GlobalEnv)
 
+# Write Lanes to CSV
+write_csv(Lane_1, path = "data/reference/GWSD_Toronto_Lane1.csv")
+write_csv(Lane_2, path = "data/reference/GWSD_Toronto_Lane2.csv")
