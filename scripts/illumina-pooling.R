@@ -141,10 +141,11 @@ output_data <- function(allData, qubit, mean_fragment_size){
 data_out <- output_data(allData, qubit, mean_fragment_size)
 
 # Split samples equally across lanes
-sequencing_lanes <- split(data_out, rep(1:num_lanes))
+sequencing_lanes <- split(data_out, rep(1:num_lanes, each = 60))
 names(sequencing_lanes) <- paste0("Lane_", seq_along(sequencing_lanes))
 list2env(sequencing_lanes, envir = .GlobalEnv)
 
 # Write Lanes to CSV
 write_csv(Lane_1, path = "data/reference/GWSD_Toronto_Lane1.csv")
 write_csv(Lane_2, path = "data/reference/GWSD_Toronto_Lane2.csv")
+
