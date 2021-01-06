@@ -6,21 +6,24 @@
 # Load required packages
 library(tidyverse)
 
-# Load test data
-# allData <- read_csv("test-data/tesPrep_postPCR_cleaned_qubit.csv")
-allData <- read_csv("data/reference//allPlants_toPrep_randomized.csv")
-
 #### VARIABLE PARAMETERS ####
 
 # Name of column with Qubit concentrations
-qubit <- "Qubit_postPCR"
+qubit <- "max_library_qubit"
+
+# Load test data
+# allData <- read_csv("test-data/tesPrep_postPCR_cleaned_qubit.csv")
+allData <- read_csv("~/github-repos/projects/glue-genomics/data-clean/shallowSample_libraryConcentrations_lane1.csv") %>% 
+  
+  # Remove samples if they have no concentration
+  filter(!(!!sym(qubit) == 0))
 
 # Total volume of post-PCR libraries
 available_vol <- 21
 
 # Mean size of library fragments. Approximated by gel electrophoresis or
 # Bioanalyser
-mean_fragment_size <- 400
+mean_fragment_size <- 250
 
 # Final volume of diluted pools. You should make sure to have at least
 # 4 uL so that 2 uL can be taken twice in case additional sequencing
@@ -28,10 +31,13 @@ mean_fragment_size <- 400
 # due to greater pipetting error at small volumes. This value may need to be 
 # increased if the initial volume to be taken from the undiluted libraries 
 # is < 2 uL, again since pipetting error increases at small volumes
-sample_pooling_vol <- 8
+sample_pooling_vol <- 5
+
+# Minimum molarity required by sequencing center
+min_required_molarity <- 3
 
 # Number of lanes across which to split samples
-num_lanes <- 2
+num_lanes <- 1
 
 #### FIXED PARAMETERS ####
 
@@ -45,6 +51,9 @@ samples_per_lane <- total_samples / num_lanes
 # Ensure enough of each pool is left for at least one more
 # round of sequencing, if necessary. 
 sample_final_volume <- 2 * sample_pooling_vol
+
+# Final volume of pools for serial dilutions (if required
+serial_dilution_final_vol <- 20
 
 #### FUNCTIONS ####
 
@@ -99,6 +108,12 @@ output_data <- function(allData, qubit, mean_fragment_size){
     # Need to conver 'qubit' character string to symbol and then evaluate to column
     mutate(nM_concentration = calculate_molarity((!!sym(qubit)), mean_fragment_size))
   
+  data_out_lowMol <- data_out %>% filter(nM_concentration < min_required_molarity)
+  data_out <- data_out %>% filter(nM_concentration >= min_required_molarity)
+  print(sprintf("%s samples are below the minimum required molarity.", nrow(data_out_lowMol)))
+  print(sprintf("%s samples meet the minimum molarity threshold", nrow(data_out)))
+  print("These will be removed for now and added back at the end")
+  
   # Figure out maximum molarity of final library pool. Based on minimum across
   # all samples so that each lane will have equal final molarity.
   # Molarity rounded down to nearest 0.25
@@ -106,18 +121,45 @@ output_data <- function(allData, qubit, mean_fragment_size){
   
   print(sprintf("The final pool molarity will be %s nM", final_pool_molarity))
   
+  # Calculate minimum library concentration such that dilution pipettes >= 2 uL
+  library_molarity_for_accuracy <- (sample_final_volume * final_pool_molarity) / 2
+  print(sprintf("Libraries must be at least %s nM to pipette >= 2uL", 
+                library_molarity_for_accuracy))
+  
+  
+  # Add serial dilutions for samples that are too concentrated (i.e., require < 2uL library)
+  data_out <- data_out %>% 
+    mutate(serial_dilution_required = ifelse(nM_concentration > library_molarity_for_accuracy, 
+                                             "Yes", "No"),
+           dilution_factor = ifelse(serial_dilution_required == 'Yes', 
+                                    ceiling(nM_concentration / library_molarity_for_accuracy),
+                                    NA),
+           conc_post_dilution =  round(nM_concentration / dilution_factor, 1),
+           library_vol_forSerial = round((conc_post_dilution * 20) / nM_concentration, 1),
+           TE_vol_forSerial = round(20 - library_vol_forSerial, 1))
+  
+  num_serials <- data_out %>% filter(serial_dilution_required == 'Yes') %>% nrow()
+  print(sprintf("%s samples need to be serially diluted", num_serials))
+  
   # Calculate initial library volume to create diluted libraries
   data_out <- data_out %>%
     mutate(
-      library_volume_uL = round(
-        calculate_library_initial_volume(nM_concentration,
-                                         final_pool_molarity,
-                                         sample_final_volume), 1),
+      library_volume_uL =
+        ifelse(
+          serial_dilution_required == 'Yes',
+          calculate_library_initial_volume(conc_post_dilution,
+                                           final_pool_molarity,
+                                           sample_final_volume),
+          calculate_library_initial_volume(nM_concentration,
+                                           final_pool_molarity,
+                                           sample_final_volume)
+        ),
       
-        # Calculate volume of TE to be added to dilute libraries to
-        # final volume of "sample_pooling_vol"
-        TE_vol_uL = round(sample_final_volume - library_volume_uL, 1))
-  
+      library_volume_uL = round(library_volume_uL, 1),
+      # Calculate volume of TE to be added to dilute libraries to
+      # final volume of "sample_pooling_vol"
+      TE_vol_uL = round(sample_final_volume - library_volume_uL, 1)
+    )
   
   minVol <- min(data_out$library_volume_uL)
   maxVol <- max(data_out$library_volume_uL)
@@ -131,6 +173,13 @@ output_data <- function(allData, qubit, mean_fragment_size){
     print(sprintf("The volumes used from the post-PCR libraries range from %s to %s uL", minVol, maxVol))
   }
   
+  if(nrow(data_out_lowMol) > 0){
+    data_out <- plyr::rbind.fill(data_out, data_out_lowMol)
+  }
+  
+  data_out <- data_out %>% 
+    arrange(city, pop, individual)
+  
   return(data_out)
 
 }
@@ -141,11 +190,10 @@ output_data <- function(allData, qubit, mean_fragment_size){
 data_out <- output_data(allData, qubit, mean_fragment_size)
 
 # Split samples equally across lanes
-sequencing_lanes <- split(data_out, rep(1:num_lanes, each = 60))
+sequencing_lanes <- split(data_out, rep(1:num_lanes, each = total_samples))
 names(sequencing_lanes) <- paste0("Lane_", seq_along(sequencing_lanes))
 list2env(sequencing_lanes, envir = .GlobalEnv)
 
 # Write Lanes to CSV
-write_csv(Lane_1, path = "data/reference/GWSD_Toronto_Lane1.csv")
-write_csv(Lane_2, path = "data/reference/GWSD_Toronto_Lane2.csv")
+write_csv(Lane_1, file = "~/github-repos/projects/glue-genomics/data-clean/shallowSample_dilutions_lane1.csv")
 
