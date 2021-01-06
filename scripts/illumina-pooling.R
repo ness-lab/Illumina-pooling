@@ -23,7 +23,7 @@ available_vol <- 21
 
 # Mean size of library fragments. Approximated by gel electrophoresis or
 # Bioanalyser
-mean_fragment_size <- 250
+mean_fragment_size <- 350
 
 # Final volume of diluted pools. You should make sure to have at least
 # 4 uL so that 2 uL can be taken twice in case additional sequencing
@@ -123,7 +123,7 @@ output_data <- function(allData, qubit, mean_fragment_size){
   
   # Calculate minimum library concentration such that dilution pipettes >= 2 uL
   library_molarity_for_accuracy <- (sample_final_volume * final_pool_molarity) / 2
-  print(sprintf("Libraries must be at least %s nM to pipette >= 2uL", 
+  print(sprintf("Libraries must be less than %s nM to pipette >= 2uL", 
                 library_molarity_for_accuracy))
   
   
