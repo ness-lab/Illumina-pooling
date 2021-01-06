@@ -177,9 +177,6 @@ output_data <- function(allData, qubit, mean_fragment_size){
     data_out <- plyr::rbind.fill(data_out, data_out_lowMol)
   }
   
-  data_out <- data_out %>% 
-    arrange(city, pop, individual)
-  
   return(data_out)
 
 }
