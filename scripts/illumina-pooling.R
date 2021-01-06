@@ -24,7 +24,7 @@ mean_fragment_size <- 400
 
 # Final volume of diluted pools. You should make sure to have at least
 # 4 uL so that 2 uL can be taken twice in case additional sequencing
-# is required downstream. It is no advisable to pipetter less than 2uL
+# is required downstream. It is not advisable to pipette less than 2uL
 # due to greater pipetting error at small volumes. This value may need to be 
 # increased if the initial volume to be taken from the undiluted libraries 
 # is < 2 uL, again since pipetting error increases at small volumes
@@ -59,7 +59,7 @@ sample_final_volume <- 2 * sample_pooling_vol
 calculate_molarity <- function(ng_uL_concentration, mean_fragment_size){
   
   nM_concentration <- (ng_uL_concentration / (660 * mean_fragment_size)) * 10 ^ 6
-  nM_concentration <- round(nM_concentration, 2)
+  nM_concentration <- round(nM_concentration, 1)
   
   return(nM_concentration)
   
