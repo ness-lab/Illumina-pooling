@@ -12,8 +12,8 @@ library(tidyverse)
 qubit <- "max_library_qubit"
 
 # Load test data
-# allData <- read_csv("test-data/tesPrep_postPCR_cleaned_qubit.csv")
-allData <- read_csv("~/github-repos/projects/glue-genomics/data-clean/shallowSample_libraryConcentrations_lane1.csv") %>% 
+allData <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_libraryConcentrations.csv")
+allData_noQubitRem <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_libraryConcentrations.csv") %>% 
   
   # Remove samples if they have no concentration
   filter(!(!!sym(qubit) == 0))
@@ -44,20 +44,15 @@ num_lanes <- 1
 # Total number of samples to be multiplexed
 total_samples <- nrow(allData)
 
-# Samples per lane
-samples_per_lane <- total_samples / num_lanes
-
 # Final volume of individual diluted pools
 # Ensure enough of each pool is left for at least one more
 # round of sequencing, if necessary. 
 sample_final_volume <- 2 * sample_pooling_vol
 
-# Final volume of pools for serial dilutions (if required
+# Final volume of pools for serial dilutions (if required)
 serial_dilution_final_vol <- 20
 
 #### FUNCTIONS ####
-
-# Move to separate scripts?
 
 #' Converts concentration from ng/uL to nM
 #' 
@@ -100,7 +95,8 @@ calculate_library_initial_volume <- function(nM_concentration, final_pool_molari
 #' @return Dataframe with sample initial volume and TE volume appended as columns
 output_data <- function(allData, qubit, mean_fragment_size){
   
-  
+  city <- allData %>% pull(city) %>% unique()
+  print(city)
   # Calculate molarity of all samples in df
   data_out <- allData %>% 
     
@@ -112,7 +108,7 @@ output_data <- function(allData, qubit, mean_fragment_size){
   data_out <- data_out %>% filter(nM_concentration >= min_required_molarity)
   print(sprintf("%s samples are below the minimum required molarity.", nrow(data_out_lowMol)))
   print(sprintf("%s samples meet the minimum molarity threshold", nrow(data_out)))
-  print("These will be removed for now and added back at the end")
+  print("Low molarity samples will be removed for now and added back at the end")
   
   # Figure out maximum molarity of final library pool. Based on minimum across
   # all samples so that each lane will have equal final molarity.
@@ -183,14 +179,17 @@ output_data <- function(allData, qubit, mean_fragment_size){
 
 #### DETERMINE POOLING VOLUMES ####
 
-# Append sample and TE volume to datasheet
-data_out <- output_data(allData, qubit, mean_fragment_size)
+# If pooling by group (e.g., city), run this code below.
+data_out <- allData_noQubitRem %>% group_split(city) %>% map_dfr(., output_data, qubit, mean_fragment_size)
+allData %>% filter(!!sym(qubit) == 0)
+# If pooling all samples together, run this code below 
+# data_out <- output_data(allData, qubit, mean_fragment_size)
 
-# Split samples equally across lanes
-sequencing_lanes <- split(data_out, rep(1:num_lanes, each = total_samples))
-names(sequencing_lanes) <- paste0("Lane_", seq_along(sequencing_lanes))
-list2env(sequencing_lanes, envir = .GlobalEnv)
+# Split samples equally across lanes. Only necessary if sequencing across multiple lanes. 
+# sequencing_lanes <- split(data_out, rep(1:num_lanes, each = total_samples))
+# names(sequencing_lanes) <- paste0("Lane_", seq_along(sequencing_lanes))
+# list2env(sequencing_lanes, envir = .GlobalEnv)
 
 # Write Lanes to CSV
-write_csv(Lane_1, file = "~/github-repos/projects/glue-genomics/data-clean/shallowSample_dilutions_lane1.csv")
+write_csv(data_out, file = "~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_dilutions.csv")
 
