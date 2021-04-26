@@ -114,8 +114,11 @@ output_data <- function(allData, qubit, mean_fragment_size){
   # all samples so that each lane will have equal final molarity.
   # Molarity rounded down to nearest 0.25
   final_pool_molarity <- floor(min(data_out$nM_concentration) / 0.25) * 0.25
+  final_pool_ng_uL <- data_out %>% pull(!!sym(qubit)) %>% min()
   
   print(sprintf("The final pool molarity will be %s nM", final_pool_molarity))
+  print(sprintf("The final pool ng/uL will be %s ng/uL", final_pool_ng_uL))
+  
   
   # Calculate minimum library concentration such that dilution pipettes >= 2 uL
   library_molarity_for_accuracy <- (sample_final_volume * final_pool_molarity) / 2
@@ -193,3 +196,9 @@ allData %>% filter(!!sym(qubit) == 0)
 # Write Lanes to CSV
 write_csv(data_out, file = "~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_dilutions.csv")
 
+test <- data_out %>% 
+  group_by(city) %>% 
+  summarise(n = n(),
+            g = n * (800/686))
+nrow(data_out)
+sum(test$g)
