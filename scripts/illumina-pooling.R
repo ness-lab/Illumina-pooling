@@ -9,7 +9,7 @@ library(tidyverse)
 #### VARIABLE PARAMETERS ####
 
 # Name of column with Qubit concentrations
-qubit <- "max_library_qubit"
+qubit <- "library_qubit"
 
 # Load test data
 allData <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_libraryConcentrations.csv")
@@ -19,7 +19,7 @@ allData_noQubitRem <- read_csv("~/github-repos/projects/glue-paper1/sequencing-p
   filter(!(!!sym(qubit) == 0))
 
 # Total volume of post-PCR libraries
-available_vol <- 21
+available_vol <- 10
 
 # Mean size of library fragments. Approximated by gel electrophoresis or
 # Bioanalyser
@@ -50,7 +50,7 @@ total_samples <- nrow(allData)
 sample_final_volume <- 2 * sample_pooling_vol
 
 # Final volume of pools for serial dilutions (if required)
-serial_dilution_final_vol <- 20
+serial_dilution_final_vol <- 10
 
 #### FUNCTIONS ####
 
@@ -134,8 +134,8 @@ output_data <- function(allData, qubit, mean_fragment_size){
                                     ceiling(nM_concentration / library_molarity_for_accuracy),
                                     NA),
            conc_post_dilution =  round(nM_concentration / dilution_factor, 1),
-           library_vol_forSerial = round((conc_post_dilution * 20) / nM_concentration, 1),
-           TE_vol_forSerial = round(20 - library_vol_forSerial, 1))
+           library_vol_forSerial = round((conc_post_dilution * serial_dilution_final_vol) / nM_concentration, 1),
+           TE_vol_forSerial = round(serial_dilution_final_vol - library_vol_forSerial, 1))
   
   num_serials <- data_out %>% filter(serial_dilution_required == 'Yes') %>% nrow()
   print(sprintf("%s samples need to be serially diluted", num_serials))
@@ -184,7 +184,7 @@ output_data <- function(allData, qubit, mean_fragment_size){
 
 # If pooling by group (e.g., city), run this code below.
 data_out <- allData_noQubitRem %>% group_split(city) %>% map_dfr(., output_data, qubit, mean_fragment_size)
-allData %>% filter(!!sym(qubit) == 0)
+allData %>% filter(!!sym(qubit) == 0) %>% pull(plantID)
 # If pooling all samples together, run this code below 
 # data_out <- output_data(allData, qubit, mean_fragment_size)
 
