@@ -9,17 +9,17 @@ library(tidyverse)
 #### VARIABLE PARAMETERS ####
 
 # Name of column with Qubit concentrations
-qubit <- "library_qubit"
+qubit <- "Qubit_toUse"
 
 # Load test data
-allData <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_libraryConcentrations.csv")
-allData_noQubitRem <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_libraryConcentrations.csv") %>% 
+allData <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane2_libraryConcentrations.csv")
+allData_noQubitRem <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane2_libraryConcentrations.csv") %>% 
   
   # Remove samples if they have no concentration
   filter(!(!!sym(qubit) == 0))
 
 # Total volume of post-PCR libraries
-available_vol <- 10
+available_vol <- 20
 
 # Mean size of library fragments. Approximated by gel electrophoresis or
 # Bioanalyser
@@ -183,7 +183,9 @@ output_data <- function(allData, qubit, mean_fragment_size){
 #### DETERMINE POOLING VOLUMES ####
 
 # If pooling by group (e.g., city), run this code below.
-data_out <- allData_noQubitRem %>% group_split(city) %>% map_dfr(., output_data, qubit, mean_fragment_size)
+
+data_out <- allData_noQubitRem %>% group_split(city) %>% map_dfr(., output_data, qubit, mean_fragment_size) %>% 
+  arrange(plantID)
 allData %>% filter(!!sym(qubit) == 0) %>% pull(plantID)
 # If pooling all samples together, run this code below 
 # data_out <- output_data(allData, qubit, mean_fragment_size)
@@ -194,11 +196,7 @@ allData %>% filter(!!sym(qubit) == 0) %>% pull(plantID)
 # list2env(sequencing_lanes, envir = .GlobalEnv)
 
 # Write Lanes to CSV
-write_csv(data_out, file = "~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane1_dilutions.csv")
+write_csv(data_out, file = "~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane2_dilutions.csv")
 
-test <- data_out %>% 
-  group_by(city) %>% 
-  summarise(n = n(),
-            g = n * (800/686))
-nrow(data_out)
-sum(test$g)
+test <- data_out %>% group_by(city) %>% mutate(is_below = ifelse(Qubit_toUse < 1.0, 1, 0)) %>% summarise(n = n(), below = sum(is_below))
+sum(test$below)
