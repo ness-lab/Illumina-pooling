@@ -185,7 +185,7 @@ output_data <- function(allData, qubit, mean_fragment_size){
 # If pooling by group (e.g., city), run this code below.
 
 data_out <- allData_noQubitRem %>% group_split(city) %>% map_dfr(., output_data, qubit, mean_fragment_size) %>% 
-  arrange(plantID)
+  arrange(Bioruptor_label)
 allData %>% filter(!!sym(qubit) == 0) %>% pull(plantID)
 # If pooling all samples together, run this code below 
 # data_out <- output_data(allData, qubit, mean_fragment_size)
