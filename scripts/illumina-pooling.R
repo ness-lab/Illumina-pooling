@@ -12,8 +12,8 @@ library(tidyverse)
 qubit <- "Qubit_toUse"
 
 # Load test data
-allData <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane2_libraryConcentrations.csv")
-allData_noQubitRem <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane2_libraryConcentrations.csv") %>% 
+allData <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_low2_lane3_libraryConcentrations.csv")
+allData_noQubitRem <- read_csv("~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_low2_lane3_libraryConcentrations.csv") %>% 
   
   # Remove samples if they have no concentration
   filter(!(!!sym(qubit) == 0))
@@ -95,7 +95,7 @@ calculate_library_initial_volume <- function(nM_concentration, final_pool_molari
 #' @return Dataframe with sample initial volume and TE volume appended as columns
 output_data <- function(allData, qubit, mean_fragment_size){
   
-  city <- allData %>% pull(city) %>% unique()
+  city <- allData %>% pull(lib_split) %>% unique()
   print(city)
   # Calculate molarity of all samples in df
   data_out <- allData %>% 
@@ -183,10 +183,10 @@ output_data <- function(allData, qubit, mean_fragment_size){
 #### DETERMINE POOLING VOLUMES ####
 
 # If pooling by group (e.g., city), run this code below.
-
-data_out <- allData_noQubitRem %>% group_split(city) %>% map_dfr(., output_data, qubit, mean_fragment_size) %>% 
+data_out %>% group_by(lib_split) %>% mutate(is_below = ifelse(Qubit_toUse < 1.0, 1, 0)) %>% summarise(n = n(), below = sum(is_below))
+data_out <- allData_noQubitRem %>% filter(!!sym(qubit) >= 1.0) %>% group_split(lib_split) %>% map_dfr(., output_data, qubit, mean_fragment_size) %>% 
   arrange(Bioruptor_label)
-allData %>% filter(!!sym(qubit) == 0) %>% pull(plantID)
+
 # If pooling all samples together, run this code below 
 # data_out <- output_data(allData, qubit, mean_fragment_size)
 
@@ -196,7 +196,6 @@ allData %>% filter(!!sym(qubit) == 0) %>% pull(plantID)
 # list2env(sequencing_lanes, envir = .GlobalEnv)
 
 # Write Lanes to CSV
-write_csv(data_out, file = "~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_lane2_dilutions.csv")
-
-test <- data_out %>% group_by(city) %>% mutate(is_below = ifelse(Qubit_toUse < 1.0, 1, 0)) %>% summarise(n = n(), below = sum(is_below))
-sum(test$below)
+write_csv(data_out, file = "~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_low2_lane3_dilutions.csv")
+allData %>% filter(!!sym(qubit) == 0 | !!sym(qubit) < 1) %>% 
+  write_csv(., '~/github-repos/projects/glue-paper1/sequencing-prep/data/clean/deep3/deep3_low2_lane3_lowConcSamples.csv')
